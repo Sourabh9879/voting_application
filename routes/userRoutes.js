@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router();
 const User = require('../models/user')
-const { jwtAuthmiddleware, generateToken } = require('./../jwt');
+const { jwtAuthMiddleware, generateToken } = require('./../jwt');
 
 // POST route to add a person
 router.post('/signup', async (req, res) => {
@@ -57,7 +57,7 @@ router.post('/login', async (req, res) => {
     }
 });
 // Profile route
-router.get('/profile', jwtAuthmiddleware, async (req, res) => {
+router.get('/profile', jwtAuthMiddleware, async (req, res) => {
     try {
         const userData = req.user;
 
