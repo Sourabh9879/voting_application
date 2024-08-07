@@ -40,7 +40,7 @@ router.post('/', jwtAuthMiddleware, async (req, res) =>{
 
 router.put('/:candidateID', jwtAuthMiddleware, async (req, res)=>{
     try{
-        if(!checkAdminRole(req.user.id))
+        if(!( await checkAdminRole(req.user.id)))
             return res.status(403).json({message: 'user does not have admin role'});
         
         const candidateID = req.params.candidateID; // Extract the id from the URL parameter
@@ -62,10 +62,10 @@ router.put('/:candidateID', jwtAuthMiddleware, async (req, res)=>{
         res.status(500).json({error: 'Internal Server Error'});
     }
 })
-
+// to delete the candidate
 router.delete('/:candidateID', jwtAuthMiddleware, async (req, res)=>{
     try{
-        if(!checkAdminRole(req.user.id))
+        if(!( await checkAdminRole(req.user.id)))
             return res.status(403).json({message: 'user does not have admin role'});
         
         const candidateID = req.params.candidateID; // Extract the id from the URL parameter
@@ -80,6 +80,79 @@ router.delete('/:candidateID', jwtAuthMiddleware, async (req, res)=>{
         res.status(200).json(response);
     }catch(err){
         console.log(err);
+        res.status(500).json({error: 'Internal Server Error'});
+    }
+})
+// to vote the candidate
+router.post('/vote/:candidateID', jwtAuthMiddleware , async (req, res) => {
+    const candidateID = req.params.candidateID;
+    const userid = req.user.id;
+    try {
+        // find the candidate document with the candidate ID
+        const candidate = await Candidate.findById(candidateID);
+        if(!candidate){
+            return res.status(404).json({message: 'Candidate not found'});
+        }
+
+        const user = await User.findById(userid);
+        if(!user){
+            return res.status(404).json({message: 'user not found'});
+        }
+        if(user.isVoted){
+            return res.status(400).json({message: 'you have already voted'});
+        }
+        if(user.role == 'admin'){
+            return res.status(400).json({message: 'admin is not allowed'}); 
+        }
+
+        // update the candidate document to record the vote
+        candidate.votes.push({user: userid});
+        candidate.voteCount++;
+        await candidate.save();
+
+        // update the user document 
+        user.isVoted = true;
+        await user.save();
+
+        res.status(200).json({message: 'vote recorded successfully'});
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({error: 'Internal Server Error'});
+    }
+}
+)
+
+// vote count 
+router.get('/vote/count', async (req,res)=>{
+   
+    try {
+        // find all candidates and sort them by voteCount in descending order
+        const candidate = await Candidate.find().sort({voteCount: 'desc'});
+
+        // map the candidate to only return their name and vote count
+        const voteRecord = candidate.map((data)=>{
+            return {
+                party : data.party,
+                voteCount : data.voteCount
+            }
+        })
+
+        res.status(200).json(voteRecord);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({error: 'Internal Server Error'});
+    }
+})
+
+// to get list of candidates
+router.get('/candidates', async (req, res)=>{
+    try {
+        // find all the candidtics and select only the name and party
+        const candidates = await Candidate.find({}, 'name party -_id ');
+        res.status(200).json(candidates);
+
+    } catch (error) {
+        console.log(error);
         res.status(500).json({error: 'Internal Server Error'});
     }
 })
